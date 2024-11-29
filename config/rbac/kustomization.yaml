@@ -18,3 +18,16 @@ resources:
 - metrics_auth_role.yaml
 - metrics_auth_role_binding.yaml
 - metrics_reader_role.yaml
+# For each CRD, "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the Project itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- incusmachinetemplate_editor_role.yaml
+- incusmachinetemplate_viewer_role.yaml
+- incusclustertemplate_editor_role.yaml
+- incusclustertemplate_viewer_role.yaml
+- incusmachine_editor_role.yaml
+- incusmachine_viewer_role.yaml
+- incuscluster_editor_role.yaml
+- incuscluster_viewer_role.yaml
+

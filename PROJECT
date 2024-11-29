@@ -7,4 +7,39 @@ layout:
 - go.kubebuilder.io/v4
 projectName: cluster-api-provider-incus
 repo: github.com/miscord-dev/cluster-api-provider-incus
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: IncusCluster
+  path: github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: IncusMachine
+  path: github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: IncusClusterTemplate
+  path: github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: IncusMachineTemplate
+  path: github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1
+  version: v1alpha1
 version: "3"

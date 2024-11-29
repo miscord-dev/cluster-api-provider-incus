@@ -1,0 +1,9 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IncusClusterTemplate
+metadata:
+  labels:
+    app.kubernetes.io/name: cluster-api-provider-incus
+    app.kubernetes.io/managed-by: kustomize
+  name: incusclustertemplate-sample
+spec:
+  # TODO(user): Add fields here
