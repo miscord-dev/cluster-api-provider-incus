@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -28,8 +29,15 @@ type IncusClusterTemplateSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of IncusClusterTemplate. Edit incusclustertemplate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Template IncusClusterTemplateResource `json:"template"`
+}
+
+type IncusClusterTemplateResource struct {
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty"`
+	Spec       IncusClusterSpec     `json:"spec"`
 }
 
 // IncusClusterTemplateStatus defines the observed state of IncusClusterTemplate.
@@ -39,15 +47,13 @@ type IncusClusterTemplateStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 
 // IncusClusterTemplate is the Schema for the incusclustertemplates API.
 type IncusClusterTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IncusClusterTemplateSpec   `json:"spec,omitempty"`
-	Status IncusClusterTemplateStatus `json:"status,omitempty"`
+	Spec IncusClusterTemplateSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true

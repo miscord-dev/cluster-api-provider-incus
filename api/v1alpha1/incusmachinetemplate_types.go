@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -28,8 +29,18 @@ type IncusMachineTemplateSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of IncusMachineTemplate. Edit incusmachinetemplate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Template IncusMachineTemplateResource `json:"template"`
+}
+
+// IncusMachineTemplateResource describes the data needed to create a IncusMachine from a template.
+type IncusMachineTemplateResource struct {
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec is the specification of the desired behavior of the machine.
+	Spec IncusMachineSpec `json:"spec"`
 }
 
 // IncusMachineTemplateStatus defines the observed state of IncusMachineTemplate.

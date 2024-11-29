@@ -28,14 +28,29 @@ type IncusClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of IncusCluster. Edit incuscluster_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+	// +optional
+	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
+}
+
+// APIEndpoint represents a reachable Kubernetes API endpoint.
+type APIEndpoint struct {
+	// Host is the hostname on which the API server is serving.
+	Host string `json:"host"`
+
+	// Port is the port on which the API server is serving.
+	// Defaults to 6443 if not set.
+	Port int `json:"port"`
 }
 
 // IncusClusterStatus defines the observed state of IncusCluster.
 type IncusClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Ready denotes that the in-memory cluster (infrastructure) is ready.
+	// +optional
+	Ready bool `json:"ready"`
 }
 
 // +kubebuilder:object:root=true

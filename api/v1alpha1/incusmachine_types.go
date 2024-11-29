@@ -28,14 +28,19 @@ type IncusMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of IncusMachine. Edit incusmachine_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// ProviderID will be the container name in ProviderID format
+	// +optional
+	ProviderID *string `json:"providerID,omitempty"`
 }
 
 // IncusMachineStatus defines the observed state of IncusMachine.
 type IncusMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Ready denotes that the machine is ready
+	// +optional
+	Ready bool `json:"ready"`
 }
 
 // +kubebuilder:object:root=true
