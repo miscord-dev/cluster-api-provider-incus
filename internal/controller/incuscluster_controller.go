@@ -19,9 +19,16 @@ package controller
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	infrastructurev1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
@@ -46,10 +53,82 @@ type IncusClusterReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.0/pkg/reconcile
-func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
+	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// Fetch the IncusCluster instance
+	incusCluster := &infrastructurev1alpha1.IncusCluster{}
+	if err := r.Client.Get(ctx, req.NamespacedName, incusCluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	// Fetch the Cluster.
+	cluster, err := util.GetOwnerCluster(ctx, r.Client, incusCluster.ObjectMeta)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if cluster == nil {
+		log.Info("Waiting for Cluster Controller to set OwnerRef on IncusCluster")
+		return ctrl.Result{}, nil
+	}
+
+	log = log.WithValues("Cluster", klog.KObj(cluster))
+	ctx = ctrl.LoggerInto(ctx, log)
+
+	// Initialize the patch helper
+	patchHelper, err := patch.NewHelper(incusCluster, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Always attempt to Patch the InMemoryCluster object and status after each reconciliation.
+	defer func() {
+		if err := patchHelper.Patch(ctx, incusCluster); err != nil {
+			rerr = kerrors.NewAggregate([]error{rerr, err})
+		}
+	}()
+
+	// Handle deleted clusters
+	if !incusCluster.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, r.reconcileDelete(ctx, cluster, incusCluster)
+	}
+
+	// Add finalizer first if not set to avoid the race condition between init and delete.
+	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
+	if !controllerutil.ContainsFinalizer(incusCluster, infrastructurev1alpha1.ClusterFinalizer) {
+		controllerutil.AddFinalizer(incusCluster, infrastructurev1alpha1.ClusterFinalizer)
+		return ctrl.Result{}, nil
+	}
+
+	// Handle non-deleted clusters
+	return r.reconcileNormal(ctx, cluster, incusCluster)
+}
+
+func (r *IncusClusterReconciler) reconcileDelete(_ context.Context, cluster *clusterv1.Cluster, incusCluster *infrastructurev1alpha1.IncusCluster) error {
+	controllerutil.RemoveFinalizer(incusCluster, infrastructurev1alpha1.ClusterFinalizer)
+
+	return nil
+}
+
+func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infrastructurev1alpha1.IncusCluster) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+
+	if incusCluster.Spec.ControlPlaneEndpoint.Host == "" {
+		log.Info("IncusCluster is not ready as controlPlaneEndpoint.host is missing")
+
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if incusCluster.Spec.ControlPlaneEndpoint.Port == 0 {
+		log.Info("IncusCluster is not ready as controlPlaneEndpoint.port is missing")
+
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// IncusCluster is ready
+	incusCluster.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }
