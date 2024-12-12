@@ -8,7 +8,7 @@ import (
 
 	incusclient "github.com/lxc/incus/client"
 	"github.com/lxc/incus/shared/api"
-	infra1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
+	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 )
 
 var (
@@ -24,12 +24,12 @@ type CreateInstanceInput struct {
 	Name          string
 	BootstrapData BootstrapData
 
-	infra1alpha1.InstanceSpec
+	infrav1alpha1.InstanceSpec
 }
 
 type GetInstanceOutput struct {
 	Name string
-	infra1alpha1.InstanceSpec
+	infrav1alpha1.InstanceSpec
 
 	// TODO: Add status
 	StatusCode api.StatusCode
@@ -120,7 +120,7 @@ func (c *client) GetInstance(ctx context.Context, name string) (*GetInstanceOutp
 
 	return &GetInstanceOutput{
 		Name: name,
-		InstanceSpec: infra1alpha1.InstanceSpec{
+		InstanceSpec: infrav1alpha1.InstanceSpec{
 			Architecture: resp.Architecture,
 			Config:       resp.Config,
 			Devices:      resp.Devices,
@@ -129,7 +129,7 @@ func (c *client) GetInstance(ctx context.Context, name string) (*GetInstanceOutp
 			Restore:      resp.Restore,
 			Stateful:     resp.Stateful,
 			Description:  resp.Description,
-			Type:         infra1alpha1.InstanceType(resp.Type),
+			Type:         infrav1alpha1.InstanceType(resp.Type),
 		},
 		StatusCode: resp.StatusCode,
 	}, nil

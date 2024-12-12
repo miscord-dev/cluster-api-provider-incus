@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	"github.com/lxc/incus/shared/api"
-	infra1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
+	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/incus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -68,7 +68,7 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Fetch the IncusMachine instance.
-	incusMachine := &infra1alpha1.IncusMachine{}
+	incusMachine := &infrav1alpha1.IncusMachine{}
 	if err := r.Client.Get(ctx, req.NamespacedName, incusMachine); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -122,7 +122,7 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Fetch the Incus Cluster.
-	incusCluster := &infra1alpha1.IncusCluster{}
+	incusCluster := &infrav1alpha1.IncusCluster{}
 	incusClusterName := client.ObjectKey{
 		Namespace: incusMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
@@ -149,8 +149,8 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Add finalizer first if not set to avoid the race condition between init and delete.
 	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
-	if incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(incusMachine, infra1alpha1.MachineFinalizer) {
-		controllerutil.AddFinalizer(incusMachine, infra1alpha1.MachineFinalizer)
+	if incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer) {
+		controllerutil.AddFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -163,13 +163,13 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.reconcileNormal(ctx, cluster, incusCluster, machine, incusMachine)
 }
 
-func patchIncusMachine(ctx context.Context, patchHelper *patch.Helper, incusMachine *infra1alpha1.IncusMachine) error {
+func patchIncusMachine(ctx context.Context, patchHelper *patch.Helper, incusMachine *infrav1alpha1.IncusMachine) error {
 	// Always update the readyCondition by summarizing the state of other conditions.
 	// A step counter is added to represent progress during the provisioning process (instead we are hiding the step counter during the deletion process).
 	// conditions.SetSummary(incusMachine,
 	// 	conditions.WithConditions(
-	// 		infra1alpha1.ContainerProvisionedCondition,
-	// 		infra1alpha1.BootstrapExecSucceededCondition,
+	// 		infrav1alpha1.ContainerProvisionedCondition,
+	// 		infrav1alpha1.BootstrapExecSucceededCondition,
 	// 	),
 	// 	conditions.WithStepCounterIf(incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && incusMachine.Spec.ProviderID == nil),
 	// )
@@ -180,13 +180,13 @@ func patchIncusMachine(ctx context.Context, patchHelper *patch.Helper, incusMach
 		incusMachine,
 		// patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 		// 	clusterv1.ReadyCondition,
-		// 	infra1alpha1.ContainerProvisionedCondition,
-		// 	infra1alpha1.BootstrapExecSucceededCondition,
+		// 	infrav1alpha1.ContainerProvisionedCondition,
+		// 	infrav1alpha1.BootstrapExecSucceededCondition,
 		// }},
 	)
 }
 
-func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusCluster *infra1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infra1alpha1.IncusMachine) (ctrl.Result, error) {
+func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusCluster *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// If the IncusMachine is being deleted, handle its deletion.
@@ -199,7 +199,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusClust
 	output, err := r.incusClient.GetInstance(ctx, incusMachine.Name)
 	if errors.Is(err, incus.ErrorInstanceNotFound) {
 		// Instance is already deleted so remove the finalizer.
-		controllerutil.RemoveFinalizer(incusMachine, infra1alpha1.MachineFinalizer)
+		controllerutil.RemoveFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 	if err != nil {
@@ -222,7 +222,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusClust
 	}, nil
 }
 
-func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infra1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infra1alpha1.IncusMachine) (ctrl.Result, error) {
+func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Check if the infrastructure is ready, otherwise return and wait for the cluster object to be updated
@@ -288,19 +288,19 @@ func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *IncusMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	clusterToIncusMachines, err := util.ClusterToTypedObjectsMapper(mgr.GetClient(), &infra1alpha1.IncusMachineList{}, mgr.GetScheme())
+	clusterToIncusMachines, err := util.ClusterToTypedObjectsMapper(mgr.GetClient(), &infrav1alpha1.IncusMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infra1alpha1.IncusMachine{}).
+		For(&infrav1alpha1.IncusMachine{}).
 		Watches(
 			&clusterv1.Machine{},
-			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infra1alpha1.GroupVersion.WithKind("IncusMachine"))),
+			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1alpha1.GroupVersion.WithKind("IncusMachine"))),
 		).
 		Watches(
-			&infra1alpha1.IncusCluster{},
+			&infrav1alpha1.IncusCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.IncusClusterToIncusMachines),
 		).
 		Watches(
@@ -310,6 +310,7 @@ func (r *IncusMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 				predicates.ClusterUnpausedAndInfrastructureReady(ctrl.LoggerFrom(ctx)),
 			),
 		).
+		Named("incusmachine").
 		Complete(r)
 }
 
@@ -317,7 +318,7 @@ func (r *IncusMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 // requests for reconciliation of IncusMachines.
 func (r *IncusMachineReconciler) IncusClusterToIncusMachines(ctx context.Context, o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
-	c, ok := o.(*infra1alpha1.IncusCluster)
+	c, ok := o.(*infrav1alpha1.IncusCluster)
 	if !ok {
 		panic(fmt.Sprintf("Expected a IncusCluster but got a %T", o))
 	}
