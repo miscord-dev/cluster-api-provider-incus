@@ -186,7 +186,7 @@ func patchIncusMachine(ctx context.Context, patchHelper *patch.Helper, incusMach
 	)
 }
 
-func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusCluster *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
+func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1alpha1.IncusCluster, _ *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// If the IncusMachine is being deleted, handle its deletion.
@@ -222,7 +222,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusClust
 	}, nil
 }
 
-func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
+func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, _ *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Check if the infrastructure is ready, otherwise return and wait for the cluster object to be updated

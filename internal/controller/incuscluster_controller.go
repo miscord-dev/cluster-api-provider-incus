@@ -110,13 +110,13 @@ func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.reconcileNormal(ctx, cluster, incusCluster)
 }
 
-func (r *IncusClusterReconciler) reconcileDelete(_ context.Context, cluster *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster) error {
+func (r *IncusClusterReconciler) reconcileDelete(_ context.Context, _ *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster) error {
 	controllerutil.RemoveFinalizer(incusCluster, infrav1alpha1.ClusterFinalizer)
 
 	return nil
 }
 
-func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster) (ctrl.Result, error) {
+func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, _ *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
 	if incusCluster.Spec.ControlPlaneEndpoint.Host == "" {
