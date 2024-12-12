@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	infrastructurev1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
+	infra1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 )
 
 // IncusClusterReconciler reconciles a IncusCluster object
@@ -57,7 +57,7 @@ func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log := log.FromContext(ctx)
 
 	// Fetch the IncusCluster instance
-	incusCluster := &infrastructurev1alpha1.IncusCluster{}
+	incusCluster := &infra1alpha1.IncusCluster{}
 	if err := r.Client.Get(ctx, req.NamespacedName, incusCluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -98,8 +98,8 @@ func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Add finalizer first if not set to avoid the race condition between init and delete.
 	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
-	if !controllerutil.ContainsFinalizer(incusCluster, infrastructurev1alpha1.ClusterFinalizer) {
-		controllerutil.AddFinalizer(incusCluster, infrastructurev1alpha1.ClusterFinalizer)
+	if !controllerutil.ContainsFinalizer(incusCluster, infra1alpha1.ClusterFinalizer) {
+		controllerutil.AddFinalizer(incusCluster, infra1alpha1.ClusterFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -107,13 +107,13 @@ func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.reconcileNormal(ctx, cluster, incusCluster)
 }
 
-func (r *IncusClusterReconciler) reconcileDelete(_ context.Context, cluster *clusterv1.Cluster, incusCluster *infrastructurev1alpha1.IncusCluster) error {
-	controllerutil.RemoveFinalizer(incusCluster, infrastructurev1alpha1.ClusterFinalizer)
+func (r *IncusClusterReconciler) reconcileDelete(_ context.Context, cluster *clusterv1.Cluster, incusCluster *infra1alpha1.IncusCluster) error {
+	controllerutil.RemoveFinalizer(incusCluster, infra1alpha1.ClusterFinalizer)
 
 	return nil
 }
 
-func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infrastructurev1alpha1.IncusCluster) (ctrl.Result, error) {
+func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infra1alpha1.IncusCluster) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
 	if incusCluster.Spec.ControlPlaneEndpoint.Host == "" {
@@ -136,7 +136,7 @@ func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, cluster *c
 // SetupWithManager sets up the controller with the Manager.
 func (r *IncusClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1alpha1.IncusCluster{}).
+		For(&infra1alpha1.IncusCluster{}).
 		Named("incuscluster").
 		Complete(r)
 }

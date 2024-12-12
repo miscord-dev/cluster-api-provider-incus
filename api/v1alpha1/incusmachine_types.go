@@ -46,12 +46,112 @@ const (
 	InstanceTypeVirtualMachine InstanceType = "virtual-machine"
 )
 
+type InstanceSource struct {
+	// Source type
+	// Example: image
+	// +kubebuilder:default=image
+	// +optional
+	Type string `json:"type" yaml:"type"`
+
+	// Certificate (for remote images or migration)
+	// Example: X509 PEM certificate
+	// +optional
+	Certificate string `json:"certificate" yaml:"certificate"`
+
+	// Image alias name (for image source)
+	// Example: ubuntu/22.04
+	// +optional
+	Alias string `json:"alias,omitempty" yaml:"alias,omitempty"`
+
+	// Image fingerprint (for image source)
+	// Example: ed56997f7c5b48e8d78986d2467a26109be6fb9f2d92e8c7b08eb8b6cec7629a
+	// +optional
+	Fingerprint string `json:"fingerprint,omitempty" yaml:"fingerprint,omitempty"`
+
+	// Image filters (for image source)
+	// Example: {"os": "Ubuntu", "release": "jammy", "variant": "cloud"}
+	// +optional
+	Properties map[string]string `json:"properties,omitempty" yaml:"properties,omitempty"`
+
+	// Remote server URL (for remote images)
+	// Example: https://images.linuxcontainers.org
+	// +optional
+	Server string `json:"server,omitempty" yaml:"server,omitempty"`
+
+	// Remote server secret (for remote private images)
+	// Example: RANDOM-STRING
+	// +optional
+	Secret string `json:"secret,omitempty" yaml:"secret,omitempty"`
+
+	// Protocol name (for remote image)
+	// Example: simplestreams
+	// +optional
+	Protocol string `json:"protocol,omitempty" yaml:"protocol,omitempty"`
+
+	// Base image fingerprint (for faster migration)
+	// Example: ed56997f7c5b48e8d78986d2467a26109be6fb9f2d92e8c7b08eb8b6cec7629a
+	// +optional
+	BaseImage string `json:"base-image,omitempty" yaml:"base-image,omitempty"`
+
+	// Whether to use pull or push mode (for migration)
+	// Example: pull
+	// +kubebuilder:default=pull
+	// +optional
+	Mode string `json:"mode,omitempty" yaml:"mode,omitempty"`
+
+	// Remote operation URL (for migration)
+	// Example: https://1.2.3.4:8443/1.0/operations/1721ae08-b6a8-416a-9614-3f89302466e1
+	// +optional
+	Operation string `json:"operation,omitempty" yaml:"operation,omitempty"`
+
+	// Map of migration websockets (for migration)
+	// Example: {"criu": "RANDOM-STRING", "rsync": "RANDOM-STRING"}
+	// +optional
+	Websockets map[string]string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+
+	// Existing instance name or snapshot (for copy)
+	// Example: foo/snap0
+	// +optional
+	Source string `json:"source,omitempty" yaml:"source,omitempty"`
+
+	// Whether this is a live migration (for migration)
+	// Example: false
+	// +optional
+	Live bool `json:"live,omitempty" yaml:"live,omitempty"`
+
+	// Whether the copy should skip the snapshots (for copy)
+	// Example: false
+	// +optional
+	InstanceOnly bool `json:"instance_only,omitempty" yaml:"instance_only,omitempty"`
+
+	// Whether this is refreshing an existing instance (for migration and copy)
+	// Example: false
+	// +optional
+	Refresh bool `json:"refresh,omitempty" yaml:"refresh,omitempty"`
+
+	// Source project name (for copy and local image)
+	// Example: blah
+	// +optional
+	Project string `json:"project,omitempty" yaml:"project,omitempty"`
+
+	// Whether to ignore errors when copying (e.g. for volatile files)
+	// Example: false
+	//
+	// API extension: instance_allow_inconsistent_copy
+	// +optional
+	AllowInconsistent bool `json:"allow_inconsistent" yaml:"allow_inconsistent"`
+}
+
 type InstanceSpec struct {
 	// Type (container or virtual-machine)
 	// Example: container
 	// +kubebuilder:default=container
 	// +optional
 	Type InstanceType `json:"type" yaml:"type"`
+
+	// Source of the instance
+	// +optional
+	Source InstanceSource `json:"source" yaml:"source"`
 
 	// Architecture name
 	// Example: x86_64

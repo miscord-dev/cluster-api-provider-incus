@@ -119,6 +119,108 @@ spec:
                               If set, instance will be restored to the provided snapshot name
                               Example: snap0
                             type: string
+                          source:
+                            description: Source of the instance
+                            properties:
+                              alias:
+                                description: |-
+                                  Image alias name (for image source)
+                                  Example: ubuntu/22.04
+                                type: string
+                              allow_inconsistent:
+                                description: |-
+                                  Whether to ignore errors when copying (e.g. for volatile files)
+                                  Example: false
+
+                                  API extension: instance_allow_inconsistent_copy
+                                type: boolean
+                              base-image:
+                                description: |-
+                                  Base image fingerprint (for faster migration)
+                                  Example: ed56997f7c5b48e8d78986d2467a26109be6fb9f2d92e8c7b08eb8b6cec7629a
+                                type: string
+                              certificate:
+                                description: |-
+                                  Certificate (for remote images or migration)
+                                  Example: X509 PEM certificate
+                                type: string
+                              fingerprint:
+                                description: |-
+                                  Image fingerprint (for image source)
+                                  Example: ed56997f7c5b48e8d78986d2467a26109be6fb9f2d92e8c7b08eb8b6cec7629a
+                                type: string
+                              instance_only:
+                                description: |-
+                                  Whether the copy should skip the snapshots (for copy)
+                                  Example: false
+                                type: boolean
+                              live:
+                                description: |-
+                                  Whether this is a live migration (for migration)
+                                  Example: false
+                                type: boolean
+                              mode:
+                                default: pull
+                                description: |-
+                                  Whether to use pull or push mode (for migration)
+                                  Example: pull
+                                type: string
+                              operation:
+                                description: |-
+                                  Remote operation URL (for migration)
+                                  Example: https://1.2.3.4:8443/1.0/operations/1721ae08-b6a8-416a-9614-3f89302466e1
+                                type: string
+                              project:
+                                description: |-
+                                  Source project name (for copy and local image)
+                                  Example: blah
+                                type: string
+                              properties:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  Image filters (for image source)
+                                  Example: {"os": "Ubuntu", "release": "jammy", "variant": "cloud"}
+                                type: object
+                              protocol:
+                                description: |-
+                                  Protocol name (for remote image)
+                                  Example: simplestreams
+                                type: string
+                              refresh:
+                                description: |-
+                                  Whether this is refreshing an existing instance (for migration and copy)
+                                  Example: false
+                                type: boolean
+                              secret:
+                                description: |-
+                                  Remote server secret (for remote private images)
+                                  Example: RANDOM-STRING
+                                type: string
+                              secrets:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  Map of migration websockets (for migration)
+                                  Example: {"criu": "RANDOM-STRING", "rsync": "RANDOM-STRING"}
+                                type: object
+                              server:
+                                description: |-
+                                  Remote server URL (for remote images)
+                                  Example: https://images.linuxcontainers.org
+                                type: string
+                              source:
+                                description: |-
+                                  Existing instance name or snapshot (for copy)
+                                  Example: foo/snap0
+                                type: string
+                              type:
+                                default: image
+                                description: |-
+                                  Source type
+                                  Example: image
+                                type: string
+                            type: object
                           stateful:
                             description: |-
                               Whether the instance currently has saved state on disk

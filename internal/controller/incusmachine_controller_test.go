@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	infrastructurev1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
+	infra1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 )
 
 var _ = Describe("IncusMachine Controller", func() {
@@ -40,13 +40,13 @@ var _ = Describe("IncusMachine Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		incusmachine := &infrastructurev1alpha1.IncusMachine{}
+		incusmachine := &infra1alpha1.IncusMachine{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind IncusMachine")
 			err := k8sClient.Get(ctx, typeNamespacedName, incusmachine)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &infrastructurev1alpha1.IncusMachine{
+				resource := &infra1alpha1.IncusMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +59,7 @@ var _ = Describe("IncusMachine Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &infrastructurev1alpha1.IncusMachine{}
+			resource := &infra1alpha1.IncusMachine{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
