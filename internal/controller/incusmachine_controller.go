@@ -222,6 +222,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 	}, nil
 }
 
+//nolint:unparam
 func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, _ *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 

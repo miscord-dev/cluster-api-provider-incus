@@ -110,12 +110,14 @@ func (r *IncusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.reconcileNormal(ctx, cluster, incusCluster)
 }
 
+//nolint:unparam
 func (r *IncusClusterReconciler) reconcileDelete(_ context.Context, _ *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster) error {
 	controllerutil.RemoveFinalizer(incusCluster, infrav1alpha1.ClusterFinalizer)
 
 	return nil
 }
 
+//nolint:unparam
 func (r *IncusClusterReconciler) reconcileNormal(ctx context.Context, _ *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
