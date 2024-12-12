@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      initContainers:
+        - name: init-incus
+          image: ghcr.io/miscord-dev/dexsidecar@sha256:40fd19cc52734740277a805f4a56db5684965275f8dd7c996d4f2496150018e0
+          restartPolicy: Always
+          env:
+            - name: dex_access_token_file
+              value: /var/run/secrets/miscord.win/dex/token
+            - name: dex_endpoint
+              value: "https://dex.tsuzu.dev/token"
+            - name: dex_basic_auth
+              value: "user:"
+            - name: dex_connector_id
+              value: k3s
+            - name: dex_grant_type
+              value: urn:ietf:params:oauth:grant-type:token-exchange
+            - name: dex_scope
+              value: "openid federated_id"
+            - name: dex_requested_token_type
+              value: urn:ietf:params:oauth:token-type:access_token
+            - name: dex_file_subject_token
+              value: /var/run/secrets/kubernetes.io/dex/token
+            - name: dex_subject_token_type
+              value: urn:ietf:params:oauth:token-type:id_token
+          volumeMounts:
+            - name: incus-api-key
+              mountPath: /var/run/secrets/miscord.win/dex
+            - name: dex
+              mountPath: /var/run/secrets/kubernetes.io/dex
+      containers:
+        - name: manager
+          # Add the following line to the container spec
+          image: nginx
+          volumeMounts:
+            - name: incus-api-key
+              mountPath: /var/run/secrets/miscord.win/dex
+      volumes:
+        - name: incus-api-key
+          emptyDir: {}
+        - name: dex
+          projected:
+            defaultMode: 420
+            sources:
+            - serviceAccountToken:
+                audience: dex
+                expirationSeconds: 7200
+                path: token

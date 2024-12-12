@@ -31,6 +31,68 @@ type IncusMachineSpec struct {
 	// ProviderID will be the container name in ProviderID format
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
+
+	// InstanceSpec is the instance configuration
+	InstanceSpec InstanceSpec `json:"instanceSpec,omitempty"`
+}
+
+// InstanceType represents the type of instance
+type InstanceType string
+
+const (
+	// InstanceTypeContainer represents a container instance
+	InstanceTypeContainer InstanceType = "container"
+	// InstanceTypeVirtualMachine represents a virtual machine instance
+	InstanceTypeVirtualMachine InstanceType = "virtual-machine"
+)
+
+type InstanceSpec struct {
+	// Type (container or virtual-machine)
+	// Example: container
+	// +kubebuilder:default=container
+	// +optional
+	Type InstanceType `json:"type" yaml:"type"`
+
+	// Architecture name
+	// Example: x86_64
+	// +kubebuilder:default=x86_64
+	// +optional
+	Architecture string `json:"architecture" yaml:"architecture"`
+
+	// Instance configuration (see doc/instances.md)
+	// Example: {"security.nesting": "true"}
+	// +optional
+	Config map[string]string `json:"config" yaml:"config"`
+
+	// Instance devices (see doc/instances.md)
+	// Example: {"root": {"type": "disk", "pool": "default", "path": "/"}}
+	// +optional
+	Devices map[string]map[string]string `json:"devices" yaml:"devices"`
+
+	// Whether the instance is ephemeral (deleted on shutdown)
+	// Example: false
+	// +optional
+	Ephemeral bool `json:"ephemeral" yaml:"ephemeral"`
+
+	// List of profiles applied to the instance
+	// Example: ["default"]
+	// +optional
+	Profiles []string `json:"profiles" yaml:"profiles"`
+
+	// If set, instance will be restored to the provided snapshot name
+	// Example: snap0
+	// +optional
+	Restore string `json:"restore,omitempty" yaml:"restore,omitempty"`
+
+	// Whether the instance currently has saved state on disk
+	// Example: false
+	// +optional
+	Stateful bool `json:"stateful" yaml:"stateful"`
+
+	// Instance description
+	// Example: My test instance
+	// +optional
+	Description string `json:"description" yaml:"description"`
 }
 
 // IncusMachineStatus defines the observed state of IncusMachine.

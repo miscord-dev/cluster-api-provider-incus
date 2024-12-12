@@ -72,6 +72,65 @@ spec:
                     description: Spec is the specification of the desired behavior
                       of the machine.
                     properties:
+                      instanceSpec:
+                        description: InstanceSpec is the instance configuration
+                        properties:
+                          architecture:
+                            default: x86_64
+                            description: |-
+                              Architecture name
+                              Example: x86_64
+                            type: string
+                          config:
+                            additionalProperties:
+                              type: string
+                            description: |-
+                              Instance configuration (see doc/instances.md)
+                              Example: {"security.nesting": "true"}
+                            type: object
+                          description:
+                            description: |-
+                              Instance description
+                              Example: My test instance
+                            type: string
+                          devices:
+                            additionalProperties:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            description: |-
+                              Instance devices (see doc/instances.md)
+                              Example: {"root": {"type": "disk", "pool": "default", "path": "/"}}
+                            type: object
+                          ephemeral:
+                            description: |-
+                              Whether the instance is ephemeral (deleted on shutdown)
+                              Example: false
+                            type: boolean
+                          profiles:
+                            description: |-
+                              List of profiles applied to the instance
+                              Example: ["default"]
+                            items:
+                              type: string
+                            type: array
+                          restore:
+                            description: |-
+                              If set, instance will be restored to the provided snapshot name
+                              Example: snap0
+                            type: string
+                          stateful:
+                            description: |-
+                              Whether the instance currently has saved state on disk
+                              Example: false
+                            type: boolean
+                          type:
+                            default: container
+                            description: |-
+                              Type (container or virtual-machine)
+                              Example: container
+                            type: string
+                        type: object
                       providerID:
                         description: ProviderID will be the container name in ProviderID
                           format

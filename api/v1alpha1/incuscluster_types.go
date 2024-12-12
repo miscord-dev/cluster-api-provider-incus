@@ -24,6 +24,9 @@ const (
 	// ClusterFinalizer allows IncusClusterReconciler to clean up resources associated with IncusCluster before
 	// removing it from the API server.
 	ClusterFinalizer = "incuscluster.infrastructure.cluster.x-k8s.io"
+	// MachineFinalizer allows IncusMachineReconciler to clean up resources associated with IncusMachine before
+	// removing it from the API server.
+	MachineFinalizer = "incusmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
