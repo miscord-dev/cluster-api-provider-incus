@@ -47,7 +47,7 @@ type IncusMachineReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	incusClient incus.Client
+	IncusClient incus.Client
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=incusmachines,verbs=get;list;watch;create;update;patch;delete
@@ -196,7 +196,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 	// 	return err
 	// }
 
-	output, err := r.incusClient.GetInstance(ctx, incusMachine.Name)
+	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if errors.Is(err, incus.ErrorInstanceNotFound) {
 		// Instance is already deleted so remove the finalizer.
 		controllerutil.RemoveFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
@@ -208,11 +208,11 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 
 	if output.StatusCode != api.Stopped &&
 		output.StatusCode != api.Stopping {
-		if err := r.incusClient.StopInstance(ctx, incusMachine.Name); err != nil {
+		if err := r.IncusClient.StopInstance(ctx, incusMachine.Name); err != nil {
 			log.Info("Failed to stop instance", "error", err)
 		}
 	} else if output.StatusCode != api.OperationCreated {
-		if err := r.incusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
+		if err := r.IncusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete instance: %w", err)
 		}
 	}
@@ -238,7 +238,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	}
 	dataSecretName := *machine.Spec.Bootstrap.DataSecretName
 
-	_, err := r.incusClient.GetInstance(ctx, incusMachine.Name)
+	_, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if err == nil {
 		return ctrl.Result{}, nil
 	}
@@ -252,7 +252,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	}
 
 	// Create the instance
-	err = r.incusClient.CreateInstance(ctx, incus.CreateInstanceInput{
+	err = r.IncusClient.CreateInstance(ctx, incus.CreateInstanceInput{
 		Name: incusMachine.Name,
 		BootstrapData: incus.BootstrapData{
 			Data:   bootstrapData,
