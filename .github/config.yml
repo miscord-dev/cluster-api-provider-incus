@@ -1,0 +1,17 @@
+default-remote: incus
+remotes:
+  images:
+    addr: https://images.linuxcontainers.org
+    protocol: simplestreams
+    public: true
+  incus:
+    addr: https://localhost:8443
+    auth_type: oidc
+    project: default
+    protocol: incus
+    public: false
+  local:
+    addr: unix://
+    protocol: incus
+    public: false
+aliases: {}
