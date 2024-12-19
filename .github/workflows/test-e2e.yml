@@ -8,6 +8,10 @@ jobs:
   test-e2e:
     name: Run on Ubuntu
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Tailscale
         uses: tailscale/github-action@v2
@@ -27,6 +31,49 @@ jobs:
 
       - name: Clone the code
         uses: actions/checkout@v4
+
+      - run: |
+          docker compose up -d
+          docker ps -a
+          curl -LO https://github.com/lxc/incus/releases/latest/download/bin.linux.incus.x86_64
+          sudo install *incus* /usr/local/bin/incus
+
+      - uses: nick-fields/retry@v3
+        with:
+          timeout_seconds: 15
+          max_attempts: 30
+          continue_on_error: false
+          command: |
+            docker exec -i incus incus config show
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const audience = 'incus';
+            const homedir = require("os").homedir();
+            const idToken = await core.getIDToken(audience);
+            await io.mkdirP(homedir + "/.config/incus/oidctokens")
+            await io.cp("config.yml", homedir + "/.config/incus/config.yml")
+            require("fs").writeFileSync(homedir + "/.config/incus/oidctokens/incus.json", JSON.stringify({
+              "access_token": idToken,
+              "token": "bearer",
+            }))
+
+      - run: |
+          mkdir -p ~/.config/incus/servercerts
+          docker cp incus:/var/lib/incus/server.crt ~/.config/incus/servercerts/incus.crt
+          docker exec -i incus incus config set core.https_address :8443
+          docker exec -i incus incus config set oidc.audience incus
+          docker exec -i incus incus config set oidc.client.id incus
+          docker exec -i incus incus config set oidc.issuer https://token.actions.githubusercontent.com
+          incus profile list
+          incus profile show default
+          incus storage create default dir
+          incus profile device add default root disk pool=default path=/
+          incus network create br0 --type=bridge
+          incus profile device add default eth0 nic name=eth0 nictype=bridged parent=br0
+          sudo sysctl -w net.ipv4.ip_forward=1
+          sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
       - name: Setup Go
         uses: actions/setup-go@v5
