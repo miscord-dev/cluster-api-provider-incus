@@ -73,7 +73,7 @@ var _ = Describe("Manager", Ordered, func() {
 					"--incus-url=https://localhost:8443",
 					"--incus-insecure-skip-verify",
 					"--incus-tls-ca=" + os.Getenv("INCUS_CERT"),
-					"--incus-oidc-token-file=/tmp/incus-token" + os.Getenv("INCUS_TOKEN"),
+					"--incus-oidc-token-file=" + os.Getenv("INCUS_TOKEN"),
 				},
 			},
 		})
