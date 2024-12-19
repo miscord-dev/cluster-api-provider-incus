@@ -71,7 +71,7 @@ var _ = Describe("Manager", Ordered, func() {
 					"--leader-elect",
 					"--health-probe-bind-address=:8081",
 					"--incus-url=https://localhost:8443",
-					"--incus-insecure-skip-tls-verify",
+					"--incus-insecure-skip-verify",
 					"--incus-tls-ca=" + os.Getenv("INCUS_CERT"),
 					"--incus-oidc-token-file=/tmp/incus-token" + os.Getenv("INCUS_TOKEN"),
 				},
