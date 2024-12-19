@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
 
       - run: |
-          docker compose up -d
+          cd .github && docker compose up -d
           docker ps -a
           curl -LO https://github.com/lxc/incus/releases/latest/download/bin.linux.incus.x86_64
           sudo install *incus* /usr/local/bin/incus
@@ -58,6 +58,7 @@ jobs:
               "access_token": idToken,
               "token": "bearer",
             }))
+            require("fs").writeFileSync(homedir + "/.config/incus/oidctokens/incus.txt", idToken)
 
       - run: |
           mkdir -p ~/.config/incus/servercerts
@@ -94,6 +95,8 @@ jobs:
 
       - name: Running Test e2e
         run: |
+          export INCUS_CERT=~/.config/incus/servercerts/incus.crt
+          export INCUS_TOKEN=~/.config/incus/oidctokens/incus.txt
           go mod tidy
           make test-e2e
 

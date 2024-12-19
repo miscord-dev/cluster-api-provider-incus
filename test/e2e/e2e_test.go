@@ -58,6 +58,29 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
 
+		patch, _ := json.Marshal([]any{
+			map[string]any{
+				"op":   "replace",
+				"path": "/spec/template/spec/containers/0/args",
+				"value": []string{
+					"--leader-elect",
+					"--health-probe-bind-address=:8081",
+					"--incus-url=https://localhost:8443",
+					"--incus-insecure-skip-tls-verify",
+					"--incus-tls-ca=" + os.Getenv("INCUS_CERT"),
+					"--incus-oidc-token-file=/tmp/incus-token" + os.Getenv("INCUS_TOKEN"),
+				},
+			},
+		})
+
+		cmd = exec.Command("kubectl", "patch", "deployment", "cluster-api-provider-incus-controller-manager",
+			"-n", namespace,
+			"--type=json",
+			"-p="+string(patch),
+		)
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to patch Deployment")
+
 		By("deploying the controller-manager")
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectImage))
 		_, err = utils.Run(cmd)
