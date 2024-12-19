@@ -127,6 +127,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
 	incusURL, connectionArgs := initIncus()
 	incusServer, err := incusclient.ConnectIncus(incusURL, &connectionArgs)
 	if err != nil {
@@ -134,8 +136,6 @@ func main() {
 		os.Exit(1)
 	}
 	incusClient := incus.NewClient(incusServer)
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
