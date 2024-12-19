@@ -10,14 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Tailscale
-        if: failure()
         uses: tailscale/github-action@v2
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
       - name: Install and Run SSH server
-        if: failure()
         run: |
           sudo apt-get update
           sudo apt-get install -y openssh-server
