@@ -73,7 +73,7 @@ var _ = Describe("Manager", Ordered, func() {
 					"--incus-url=https://localhost:8443",
 					"--incus-insecure-skip-verify",
 					"--incus-tls-ca=" + os.Getenv("INCUS_CERT"),
-					"--incus-oidc-token-file=" + os.Getenv("INCUS_TOKEN"),
+					"--incus-oidc-token-file=/oidctoken",
 				},
 			},
 		})
@@ -173,6 +173,13 @@ var _ = Describe("Manager", Ordered, func() {
 				g.Expect(podNames).To(HaveLen(1), "expected 1 controller pod running")
 				controllerPodName = podNames[0]
 				g.Expect(controllerPodName).To(ContainSubstring("controller-manager"))
+
+				cmd = exec.Command("kubectl", "cp", "-n", namespace,
+					os.Getenv("INCUS_TOKEN"),
+					controllerPodName+":/oidctoken",
+				)
+				_, err = utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred(), "Failed to copy OIDC token to controller pod")
 
 				// Validate the pod's status
 				cmd = exec.Command("kubectl", "get",
