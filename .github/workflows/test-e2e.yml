@@ -94,6 +94,16 @@ jobs:
       - name: Create kind cluster
         run: kind create cluster --config .github/kind.yaml
 
+      - name: Install cluster-api
+        run: |
+          curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.9.1/clusterctl-linux-amd64 -o clusterctl
+          sudo install -o root -g root -m 0755 clusterctl /usr/local/bin/clusterctl
+
+          # Enable the experimental Cluster topology feature.
+          export CLUSTER_TOPOLOGY=true
+          # Initialize the management cluster
+          clusterctl init --infrastructure docker
+
       - name: Running Test e2e
         run: |
           export INCUS_CERT=~/.config/incus/servercerts/incus.crt
