@@ -53,12 +53,13 @@ jobs:
             const homedir = require("os").homedir();
             const idToken = await core.getIDToken(audience);
             await io.mkdirP(homedir + "/.config/incus/oidctokens")
+            await io.mkdirP("./shared")
             await io.cp("./.github/config.yml", homedir + "/.config/incus/config.yml")
             require("fs").writeFileSync(homedir + "/.config/incus/oidctokens/incus.json", JSON.stringify({
               "access_token": idToken,
               "token": "bearer",
             }))
-            require("fs").writeFileSync(homedir + "/.config/incus/oidctokens/incus.txt", idToken)
+            require("fs").writeFileSync("./shared/incus.txt", idToken)
 
       - run: |
           mkdir -p ~/.config/incus/servercerts
