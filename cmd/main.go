@@ -43,6 +43,7 @@ import (
 	"github.com/miscord-dev/cluster-api-provider-incus/internal/controller"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/incus"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/transport"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,6 +54,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
 
 	utilruntime.Must(infrav1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
