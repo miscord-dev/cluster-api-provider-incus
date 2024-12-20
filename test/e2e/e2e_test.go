@@ -78,15 +78,17 @@ var _ = Describe("Manager", Ordered, func() {
 			},
 			map[string]any{
 				"op":   "add",
-				"path": "/spec/template/spec/containers/0/volumeMounts",
-				"value": map[string]string{
-					"name":      "shared",
-					"mountPath": "/shared",
+				"path": "/spec/template/spec/containers/volumeMounts/-",
+				"value": []any{
+					map[string]any{
+						"name":      "shared",
+						"mountPath": "/shared",
+					},
 				},
 			},
 			map[string]any{
 				"op":   "add",
-				"path": "/spec/template/spec/volumes",
+				"path": "/spec/template/spec/volumes/-",
 				"value": map[string]any{
 					"name": "shared",
 					"hostPath": map[string]string{
