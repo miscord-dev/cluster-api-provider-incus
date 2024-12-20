@@ -170,16 +170,19 @@ var _ = Describe("Manager", Ordered, func() {
 				podOutput, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to retrieve controller-manager pod information")
 				podNames := utils.GetNonEmptyLines(podOutput)
+
+				for _, podName := range podNames {
+					cmd = exec.Command("kubectl", "cp", "-n", namespace,
+						os.Getenv("INCUS_TOKEN"),
+						podName+":/oidctoken",
+					)
+					_, err = utils.Run(cmd)
+					g.Expect(err).NotTo(HaveOccurred(), "Failed to copy OIDC token to controller pod")
+				}
+
 				g.Expect(podNames).To(HaveLen(1), "expected 1 controller pod running")
 				controllerPodName = podNames[0]
 				g.Expect(controllerPodName).To(ContainSubstring("controller-manager"))
-
-				cmd = exec.Command("kubectl", "cp", "-n", namespace,
-					os.Getenv("INCUS_TOKEN"),
-					controllerPodName+":/oidctoken",
-				)
-				_, err = utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred(), "Failed to copy OIDC token to controller pod")
 
 				// Validate the pod's status
 				cmd = exec.Command("kubectl", "get",
