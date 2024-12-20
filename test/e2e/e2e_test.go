@@ -74,6 +74,7 @@ var _ = Describe("Manager", Ordered, func() {
 					"--incus-insecure-skip-verify",
 					"--incus-tls-ca=" + os.Getenv("INCUS_CERT"),
 					"--incus-oidc-token-file=/shared/incus.txt",
+					"--metrics-bind-address=:8443",
 				},
 			},
 			map[string]any{
