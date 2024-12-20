@@ -69,7 +69,7 @@ func incusConnection() func() (url string, args incusclient.ConnectionArgs) {
 	flag.StringVar(&args.TLSClientKey, "incus-tls-client-key", "", "The path to the client key")
 	flag.StringVar(&oidcTokenFile, "incus-oidc-token-file", "", "The path to the OIDC token file (Supports hot-reloading)")
 
-	return func() (url string, args incusclient.ConnectionArgs) {
+	return func() (string, incusclient.ConnectionArgs) {
 		if args.TLSCA != "" {
 			args.TLSCA = string(loadFile(args.TLSCA))
 		}
