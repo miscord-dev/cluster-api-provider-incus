@@ -62,6 +62,52 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectImage))
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
+
+		patch, _ := json.Marshal([]any{
+			map[string]any{
+				"op":   "replace",
+				"path": "/spec/template/spec/containers/0/args",
+				"value": []string{
+					"--leader-elect",
+					"--health-probe-bind-address=:8081",
+					"--incus-url=https://172.17.0.1:8443",
+					"--incus-insecure-skip-verify",
+					"--incus-tls-ca=" + os.Getenv("INCUS_CERT"),
+					"--incus-oidc-token-file=/shared/incus.txt",
+					"--metrics-bind-address=:8443",
+				},
+			},
+			map[string]any{
+				"op":   "add",
+				"path": "/spec/template/spec/containers/0/volumeMounts",
+				"value": []any{
+					map[string]any{
+						"name":      "shared",
+						"mountPath": "/shared",
+					},
+				},
+			},
+			map[string]any{
+				"op":   "add",
+				"path": "/spec/template/spec/volumes",
+				"value": []any{
+					map[string]any{
+						"name": "shared",
+						"hostPath": map[string]string{
+							"path": "/shared",
+						},
+					},
+				},
+			},
+		})
+
+		cmd = exec.Command("kubectl", "patch", "deployment", "cluster-api-provider-incus-controller-manager",
+			"-n", namespace,
+			"--type=json",
+			"-p="+string(patch),
+		)
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to patch Deployment")
 	})
 
 	// After all tests have been executed, clean up by undeploying the controller, uninstalling CRDs,
@@ -147,6 +193,7 @@ var _ = Describe("Manager", Ordered, func() {
 				podOutput, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to retrieve controller-manager pod information")
 				podNames := utils.GetNonEmptyLines(podOutput)
+
 				g.Expect(podNames).To(HaveLen(1), "expected 1 controller pod running")
 				controllerPodName = podNames[0]
 				g.Expect(controllerPodName).To(ContainSubstring("controller-manager"))

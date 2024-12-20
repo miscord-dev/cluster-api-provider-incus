@@ -43,6 +43,7 @@ import (
 	"github.com/miscord-dev/cluster-api-provider-incus/internal/controller"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/incus"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/transport"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,6 +54,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
 
 	utilruntime.Must(infrav1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
@@ -69,7 +71,7 @@ func incusConnection() func() (url string, args incusclient.ConnectionArgs) {
 	flag.StringVar(&args.TLSClientKey, "incus-tls-client-key", "", "The path to the client key")
 	flag.StringVar(&oidcTokenFile, "incus-oidc-token-file", "", "The path to the OIDC token file (Supports hot-reloading)")
 
-	return func() (url string, args incusclient.ConnectionArgs) {
+	return func() (string, incusclient.ConnectionArgs) {
 		if args.TLSCA != "" {
 			args.TLSCA = string(loadFile(args.TLSCA))
 		}
@@ -127,6 +129,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
 	incusURL, connectionArgs := initIncus()
 	incusServer, err := incusclient.ConnectIncus(incusURL, &connectionArgs)
 	if err != nil {
@@ -134,8 +138,6 @@ func main() {
 		os.Exit(1)
 	}
 	incusClient := incus.NewClient(incusServer)
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

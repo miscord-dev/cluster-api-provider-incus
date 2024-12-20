@@ -1,0 +1,15 @@
+services:
+  incus:
+    image: ghcr.io/miscord-dev/incus-docker-debian:bookworm-slim-6.7-20241127
+    container_name: incus
+    privileged: true
+    environment:
+      - SETIPTABLES=true
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    cgroup: host
+    volumes:
+      - /dev:/dev
+      - /var/lib/incus:/var/lib/incus
+      - /lib/modules:/lib/modules:ro
