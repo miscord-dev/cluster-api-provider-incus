@@ -91,7 +91,7 @@ type InstanceSource struct {
 	// Base image fingerprint (for faster migration)
 	// Example: ed56997f7c5b48e8d78986d2467a26109be6fb9f2d92e8c7b08eb8b6cec7629a
 	// +optional
-	BaseImage string `json:"base-image,omitempty" yaml:"base-image,omitempty"`
+	BaseImage string `json:"baseImage,omitempty" yaml:"baseImage,omitempty"`
 
 	// Whether to use pull or push mode (for migration)
 	// Example: pull
@@ -122,7 +122,7 @@ type InstanceSource struct {
 	// Whether the copy should skip the snapshots (for copy)
 	// Example: false
 	// +optional
-	InstanceOnly bool `json:"instance_only,omitempty" yaml:"instance_only,omitempty"`
+	InstanceOnly bool `json:"instanceOnly,omitempty" yaml:"instanceOnly,omitempty"`
 
 	// Whether this is refreshing an existing instance (for migration and copy)
 	// Example: false
@@ -139,7 +139,7 @@ type InstanceSource struct {
 	//
 	// API extension: instance_allow_inconsistent_copy
 	// +optional
-	AllowInconsistent bool `json:"allow_inconsistent" yaml:"allow_inconsistent"`
+	AllowInconsistent bool `json:"allowInconsistent" yaml:"allowInconsistent"`
 }
 
 type InstanceSpec struct {
