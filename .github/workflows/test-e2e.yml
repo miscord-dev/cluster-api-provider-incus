@@ -110,6 +110,7 @@ jobs:
           export INCUS_TOKEN=~/.config/incus/oidctokens/incus.txt
           go mod tidy
           make test-e2e
+          exit 1
 
       - name: Wait
         if: failure()
