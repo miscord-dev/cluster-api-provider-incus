@@ -291,6 +291,15 @@ var _ = Describe("Manager", Ordered, func() {
 		//    fmt.Sprintf(`controller_runtime_reconcile_total{controller="%s",result="success"} 1`,
 		//    strings.ToLower(<Kind>),
 		// ))
+
+		It("create an IncusCluster", func() {
+			By("creating a ClusterClass/Cluster/IncusCluster/etc for the IncusCluster")
+			cmd := exec.Command("kubectl", "apply", "-n", namespace,
+				"-f", ".github/cluster.yml",
+			)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create Cluster")
+		})
 	})
 })
 
