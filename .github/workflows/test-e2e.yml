@@ -16,6 +16,22 @@ jobs:
       - name: Clone the code
         uses: actions/checkout@v4
 
+      - name: Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      - name: Install and Run SSH server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-server
+          sudo systemctl start ssh
+          sudo systemctl status ssh
+          whoami
+          mkdir -p ~/.ssh
+          curl -L https://github.com/tsuzu.keys >> ~/.ssh/authorized_keys 
+
       - run: |
           cd .github && docker compose up -d
           docker ps -a
@@ -94,3 +110,9 @@ jobs:
           export INCUS_TOKEN=~/.config/incus/oidctokens/incus.txt
           go mod tidy
           make test-e2e
+
+      - name: Wait
+        if: failure()
+        run: |
+          sleep 3600
+          echo "Failed"
