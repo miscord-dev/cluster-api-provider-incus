@@ -37,6 +37,7 @@ type GetInstanceOutput struct {
 
 type Client interface {
 	CreateInstance(ctx context.Context, spec CreateInstanceInput) error
+	InstanceExists(ctx context.Context, name string) (bool, error)
 	GetInstance(ctx context.Context, name string) (*GetInstanceOutput, error)
 	DeleteInstance(ctx context.Context, name string) error
 	StopInstance(ctx context.Context, name string) error
@@ -106,6 +107,19 @@ func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) e
 	}
 
 	return nil
+}
+
+func (c *client) InstanceExists(ctx context.Context, name string) (bool, error) {
+	_, _, err := c.client.GetInstance(name)
+	if err != nil {
+		if api.StatusErrorCheck(err, http.StatusNotFound) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("failed to get instance: %w", err)
+	}
+
+	return true, nil
 }
 
 func (c *client) GetInstance(ctx context.Context, name string) (*GetInstanceOutput, error) {

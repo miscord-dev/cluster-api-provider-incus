@@ -207,13 +207,18 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 	// 	return err
 	// }
 
-	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
-	if errors.Is(err, incus.ErrorInstanceNotFound) {
+	exists, err := r.IncusClient.InstanceExists(ctx, incusMachine.Name)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check if instance exists: %w", err)
+	}
+	if !exists {
 		// Instance is already deleted so remove the finalizer.
 		log.Info("Deleting finalizer from IncusMachine")
 		controllerutil.RemoveFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
+
+	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get instance: %w", err)
 	}
