@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/lxc/incus/shared/api"
 	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
@@ -224,12 +225,20 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 		if err := r.IncusClient.StopInstance(ctx, incusMachine.Name); err != nil {
 			log.Info("Failed to stop instance", "error", err)
 		}
+
+		return ctrl.Result{
+			RequeueAfter: 5 * time.Second,
+		}, nil
 	} else if output.StatusCode != api.OperationCreated {
 		log.Info("Deleting instance")
 
 		if err := r.IncusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete instance: %w", err)
 		}
+
+		return ctrl.Result{
+			RequeueAfter: 5 * time.Second,
+		}, nil
 	}
 
 	return ctrl.Result{
