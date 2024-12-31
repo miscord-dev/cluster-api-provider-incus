@@ -55,6 +55,9 @@ func NewClient(instanceServer incusclient.InstanceServer) Client {
 
 func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) error {
 	config := maps.Clone(spec.Config)
+	if config == nil {
+		config = make(map[string]string)
+	}
 
 	switch spec.BootstrapData.Format {
 	case "cloud-config":
