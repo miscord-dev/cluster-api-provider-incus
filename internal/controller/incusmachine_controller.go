@@ -151,9 +151,13 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
+	log.Info("Reconciling IncusMachine")
+
 	// Add finalizer first if not set to avoid the race condition between init and delete.
 	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
 	if incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer) {
+		log.Info("Adding finalizer for IncusMachine")
+
 		controllerutil.AddFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{
 			Requeue: true,
@@ -205,6 +209,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if errors.Is(err, incus.ErrorInstanceNotFound) {
 		// Instance is already deleted so remove the finalizer.
+		log.Info("Deleting finalizer from IncusMachine")
 		controllerutil.RemoveFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
@@ -214,10 +219,14 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 
 	if output.StatusCode != api.Stopped &&
 		output.StatusCode != api.Stopping {
+		log.Info("Stopping instance")
+
 		if err := r.IncusClient.StopInstance(ctx, incusMachine.Name); err != nil {
 			log.Info("Failed to stop instance", "error", err)
 		}
 	} else if output.StatusCode != api.OperationCreated {
+		log.Info("Deleting instance")
+
 		if err := r.IncusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete instance: %w", err)
 		}
@@ -256,6 +265,8 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	log.Info("Creating IncusMachine instance")
 
 	// Create the instance
 	err = r.IncusClient.CreateInstance(ctx, incus.CreateInstanceInput{
