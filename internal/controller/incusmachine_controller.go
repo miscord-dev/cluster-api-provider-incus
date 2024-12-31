@@ -55,6 +55,8 @@ type IncusMachineReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=incusmachines/finalizers,verbs=update
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines,verbs=get;list;watch
+// +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machinesets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -153,7 +155,9 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
 	if incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer) {
 		controllerutil.AddFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
-		return ctrl.Result{}, nil
+		return ctrl.Result{
+			Requeue: true,
+		}, nil
 	}
 
 	// Handle deleted machines
