@@ -9,6 +9,7 @@ import (
 	incusclient "github.com/lxc/incus/client"
 	"github.com/lxc/incus/shared/api"
 	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -54,6 +55,8 @@ func NewClient(instanceServer incusclient.InstanceServer) Client {
 }
 
 func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) error {
+	log := ctrl.LoggerFrom(ctx)
+
 	config := maps.Clone(spec.Config)
 	if config == nil {
 		config = make(map[string]string)
@@ -67,6 +70,11 @@ func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) e
 	default:
 		return fmt.Errorf("unsupported bootstrap data format: %s", spec.BootstrapData.Format)
 	}
+
+	log.Info("bootstrap data",
+		"format", spec.BootstrapData.Format,
+		"data_len", len(spec.BootstrapData.Data),
+	)
 
 	req := api.InstancesPost{
 		Name: spec.Name,
