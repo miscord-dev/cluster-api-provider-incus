@@ -332,7 +332,7 @@ func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace
 }
 
 func (r *IncusMachineReconciler) isMachineReady(ctx context.Context, output *incus.GetInstanceOutput) bool {
-	return output.StatusCode == api.Ready
+	return output.StatusCode == api.Running
 }
 
 // SetupWithManager sets up the controller with the Manager.
