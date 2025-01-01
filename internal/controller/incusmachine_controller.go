@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lxc/incus/shared/api"
 	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/incus"
@@ -29,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -280,7 +280,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 		if r.isMachineReady(ctx, output) {
 			log.Info("IncusMachine instance is ready")
 
-			incusMachine.Spec.ProviderID = ptr.To("incus://" + output.Name)
+			incusMachine.Spec.ProviderID = &output.ProviderID
 			incusMachine.Status.Ready = true
 
 			return ctrl.Result{}, nil
@@ -301,6 +301,13 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 
 	log.Info("Creating IncusMachine instance")
 
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to generate UUID: %w", err)
+	}
+
+	providerID := fmt.Sprintf("incus://%s", uuid.String())
+
 	// Create the instance
 	err = r.IncusClient.CreateInstance(ctx, incus.CreateInstanceInput{
 		Name: incusMachine.Name,
@@ -308,6 +315,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 			Data:   bootstrapData,
 			Format: string(bootstrapFormat),
 		},
+		ProviderID:   providerID,
 		InstanceSpec: incusMachine.Spec.InstanceSpec,
 	})
 	if err != nil {

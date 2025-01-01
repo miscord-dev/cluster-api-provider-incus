@@ -15,6 +15,12 @@ var (
 	ErrorInstanceNotFound = fmt.Errorf("instance not found")
 )
 
+const (
+	configUserDataKey   = "cloud-init.user-data"
+	configProviderIDKey = "user.provider-id"
+	configMetaDataKey   = "user.meta-data"
+)
+
 type BootstrapData struct {
 	Format string
 	Data   string
@@ -23,6 +29,7 @@ type BootstrapData struct {
 type CreateInstanceInput struct {
 	Name          string
 	BootstrapData BootstrapData
+	ProviderID    string
 
 	infrav1alpha1.InstanceSpec
 }
@@ -31,6 +38,7 @@ type GetInstanceOutput struct {
 	Name string
 	infrav1alpha1.InstanceSpec
 
+	ProviderID string
 	// TODO: Add status
 	StatusCode api.StatusCode
 }
@@ -61,12 +69,15 @@ func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) e
 
 	switch spec.BootstrapData.Format {
 	case "cloud-config":
-		config["cloud-init.user-data"] = spec.BootstrapData.Data
+		config[configUserDataKey] = spec.BootstrapData.Data
 	case "":
 		// Do nothing
 	default:
 		return fmt.Errorf("unsupported bootstrap data format: %s", spec.BootstrapData.Format)
 	}
+
+	config[configProviderIDKey] = spec.ProviderID
+	config[configMetaDataKey] = fmt.Sprintf("provider-id: %s", spec.ProviderID)
 
 	req := api.InstancesPost{
 		Name: spec.Name,
@@ -148,6 +159,7 @@ func (c *client) GetInstance(ctx context.Context, name string) (*GetInstanceOutp
 			Description:  resp.Description,
 			Type:         infrav1alpha1.InstanceType(resp.Type),
 		},
+		ProviderID: resp.Config[configProviderIDKey],
 		StatusCode: resp.StatusCode,
 	}, nil
 }
