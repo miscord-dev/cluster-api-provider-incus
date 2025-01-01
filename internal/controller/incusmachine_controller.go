@@ -280,9 +280,13 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 			log.Info("IncusMachine instance is ready")
 
 			incusMachine.Status.Ready = true
+
+			return ctrl.Result{}, nil
 		}
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{
+			RequeueAfter: 10 * time.Second,
+		}, nil
 	}
 	if !errors.Is(err, incus.ErrorInstanceNotFound) {
 		return ctrl.Result{}, fmt.Errorf("failed to get instance: %w", err)
