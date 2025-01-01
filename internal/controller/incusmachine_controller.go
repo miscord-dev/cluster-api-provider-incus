@@ -142,6 +142,13 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	deleted := !incusMachine.ObjectMeta.DeletionTimestamp.IsZero()
+	containsFinalizer := controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
+
+	if deleted && !containsFinalizer {
+		// Return early since the object is being deleted and doesn't have the finalizer.
+		return ctrl.Result{}, nil
+	}
 	// Always attempt to Patch the IncusMachine object and status after each reconciliation.
 	defer func() {
 		if err := patchIncusMachine(ctx, patchHelper, incusMachine); err != nil {
@@ -154,20 +161,20 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	log.Info("Reconciling IncusMachine")
 
+	// Handle deleted machines
+	if deleted {
+		return r.reconcileDelete(ctx, incusCluster, machine, incusMachine)
+	}
+
 	// Add finalizer first if not set to avoid the race condition between init and delete.
 	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
-	if incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer) {
+	if !containsFinalizer {
 		log.Info("Adding finalizer for IncusMachine")
 
 		controllerutil.AddFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{
 			Requeue: true,
 		}, nil
-	}
-
-	// Handle deleted machines
-	if !incusMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, incusCluster, machine, incusMachine)
 	}
 
 	// Handle non-deleted machines
