@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -279,6 +280,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 		if r.isMachineReady(ctx, output) {
 			log.Info("IncusMachine instance is ready")
 
+			incusMachine.Spec.ProviderID = ptr.To("incus://" + output.Name)
 			incusMachine.Status.Ready = true
 
 			return ctrl.Result{}, nil
