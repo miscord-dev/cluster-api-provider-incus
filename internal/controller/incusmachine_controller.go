@@ -274,8 +274,14 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	}
 	dataSecretName := *machine.Spec.Bootstrap.DataSecretName
 
-	_, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
+	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if err == nil {
+		if r.isMachineReady(ctx, output) {
+			log.Info("IncusMachine instance is ready")
+
+			incusMachine.Status.Ready = true
+		}
+
 		return ctrl.Result{}, nil
 	}
 	if !errors.Is(err, incus.ErrorInstanceNotFound) {
@@ -323,6 +329,10 @@ func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace
 	}
 
 	return string(value), bootstrapv1.Format(format), nil
+}
+
+func (r *IncusMachineReconciler) isMachineReady(ctx context.Context, output *incus.GetInstanceOutput) bool {
+	return output.StatusCode == api.Ready
 }
 
 // SetupWithManager sets up the controller with the Manager.
