@@ -322,7 +322,9 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 		return ctrl.Result{}, fmt.Errorf("failed to create instance: %w", err)
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{
+		RequeueAfter: 10 * time.Second,
+	}, nil
 }
 
 func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace string, dataSecretName string) (string, bootstrapv1.Format, error) {
