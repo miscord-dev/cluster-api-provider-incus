@@ -31,7 +31,7 @@ import (
 )
 
 // namespace where the project is deployed in
-const namespace = "cluster-api-provider-incus-system"
+const namespace = "capincus-system"
 
 // serviceAccountName created for the project
 const serviceAccountName = "cluster-api-provider-incus-controller-manager"
