@@ -277,7 +277,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 
 	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if err == nil {
-		if r.isMachineReady(ctx, output) {
+		if r.isMachineReady(output) {
 			log.Info("IncusMachine instance is ready")
 
 			incusMachine.Spec.ProviderID = &output.ProviderID
@@ -345,7 +345,7 @@ func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace
 	return string(value), bootstrapv1.Format(format), nil
 }
 
-func (r *IncusMachineReconciler) isMachineReady(ctx context.Context, output *incus.GetInstanceOutput) bool {
+func (r *IncusMachineReconciler) isMachineReady(output *incus.GetInstanceOutput) bool {
 	return output.StatusCode == api.Running
 }
 
