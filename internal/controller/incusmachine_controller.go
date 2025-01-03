@@ -20,7 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/lxc/incus/shared/api"
 	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/incus"
@@ -55,6 +57,8 @@ type IncusMachineReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=incusmachines/finalizers,verbs=update
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines,verbs=get;list;watch
+// +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machinesets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -139,6 +143,13 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	deleted := !incusMachine.ObjectMeta.DeletionTimestamp.IsZero()
+	containsFinalizer := controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
+
+	if deleted && !containsFinalizer {
+		// Return early since the object is being deleted and doesn't have the finalizer.
+		return ctrl.Result{}, nil
+	}
 	// Always attempt to Patch the IncusMachine object and status after each reconciliation.
 	defer func() {
 		if err := patchIncusMachine(ctx, patchHelper, incusMachine); err != nil {
@@ -149,16 +160,22 @@ func (r *IncusMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	// Add finalizer first if not set to avoid the race condition between init and delete.
-	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
-	if incusMachine.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(incusMachine, infrav1alpha1.MachineFinalizer) {
-		controllerutil.AddFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
-		return ctrl.Result{}, nil
-	}
+	log.Info("Reconciling IncusMachine")
 
 	// Handle deleted machines
-	if !incusMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+	if deleted {
 		return r.reconcileDelete(ctx, incusCluster, machine, incusMachine)
+	}
+
+	// Add finalizer first if not set to avoid the race condition between init and delete.
+	// Note: Finalizers in general can only be added when the deletionTimestamp is not set.
+	if !containsFinalizer {
+		log.Info("Adding finalizer for IncusMachine")
+
+		controllerutil.AddFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
+		return ctrl.Result{
+			Requeue: true,
+		}, nil
 	}
 
 	// Handle non-deleted machines
@@ -198,25 +215,43 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 	// 	return err
 	// }
 
-	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
-	if errors.Is(err, incus.ErrorInstanceNotFound) {
+	exists, err := r.IncusClient.InstanceExists(ctx, incusMachine.Name)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check if instance exists: %w", err)
+	}
+	if !exists {
 		// Instance is already deleted so remove the finalizer.
+		log.Info("Deleting finalizer from IncusMachine")
 		controllerutil.RemoveFinalizer(incusMachine, infrav1alpha1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
+
+	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get instance: %w", err)
 	}
 
 	if output.StatusCode != api.Stopped &&
 		output.StatusCode != api.Stopping {
+		log.Info("Stopping instance")
+
 		if err := r.IncusClient.StopInstance(ctx, incusMachine.Name); err != nil {
 			log.Info("Failed to stop instance", "error", err)
 		}
+
+		return ctrl.Result{
+			RequeueAfter: 5 * time.Second,
+		}, nil
 	} else if output.StatusCode != api.OperationCreated {
+		log.Info("Deleting instance")
+
 		if err := r.IncusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete instance: %w", err)
 		}
+
+		return ctrl.Result{
+			RequeueAfter: 5 * time.Second,
+		}, nil
 	}
 
 	return ctrl.Result{
@@ -240,9 +275,20 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	}
 	dataSecretName := *machine.Spec.Bootstrap.DataSecretName
 
-	_, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
+	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
 	if err == nil {
-		return ctrl.Result{}, nil
+		if r.isMachineReady(output) {
+			log.Info("IncusMachine instance is ready")
+
+			incusMachine.Spec.ProviderID = &output.ProviderID
+			incusMachine.Status.Ready = true
+
+			return ctrl.Result{}, nil
+		}
+
+		return ctrl.Result{
+			RequeueAfter: 10 * time.Second,
+		}, nil
 	}
 	if !errors.Is(err, incus.ErrorInstanceNotFound) {
 		return ctrl.Result{}, fmt.Errorf("failed to get instance: %w", err)
@@ -253,6 +299,15 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Creating IncusMachine instance")
+
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to generate UUID: %w", err)
+	}
+
+	providerID := fmt.Sprintf("incus://%s", uuid.String())
+
 	// Create the instance
 	err = r.IncusClient.CreateInstance(ctx, incus.CreateInstanceInput{
 		Name: incusMachine.Name,
@@ -260,13 +315,16 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 			Data:   bootstrapData,
 			Format: string(bootstrapFormat),
 		},
+		ProviderID:   providerID,
 		InstanceSpec: incusMachine.Spec.InstanceSpec,
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create instance: %w", err)
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{
+		RequeueAfter: 10 * time.Second,
+	}, nil
 }
 
 func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace string, dataSecretName string) (string, bootstrapv1.Format, error) {
@@ -287,6 +345,10 @@ func (r *IncusMachineReconciler) getBootstrapData(ctx context.Context, namespace
 	}
 
 	return string(value), bootstrapv1.Format(format), nil
+}
+
+func (r *IncusMachineReconciler) isMachineReady(output *incus.GetInstanceOutput) bool {
+	return output.StatusCode == api.Running
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -15,6 +15,12 @@ var (
 	ErrorInstanceNotFound = fmt.Errorf("instance not found")
 )
 
+const (
+	configUserDataKey   = "cloud-init.user-data"
+	configProviderIDKey = "user.provider-id"
+	configMetaDataKey   = "user.meta-data"
+)
+
 type BootstrapData struct {
 	Format string
 	Data   string
@@ -23,6 +29,7 @@ type BootstrapData struct {
 type CreateInstanceInput struct {
 	Name          string
 	BootstrapData BootstrapData
+	ProviderID    string
 
 	infrav1alpha1.InstanceSpec
 }
@@ -31,12 +38,14 @@ type GetInstanceOutput struct {
 	Name string
 	infrav1alpha1.InstanceSpec
 
+	ProviderID string
 	// TODO: Add status
 	StatusCode api.StatusCode
 }
 
 type Client interface {
 	CreateInstance(ctx context.Context, spec CreateInstanceInput) error
+	InstanceExists(ctx context.Context, name string) (bool, error)
 	GetInstance(ctx context.Context, name string) (*GetInstanceOutput, error)
 	DeleteInstance(ctx context.Context, name string) error
 	StopInstance(ctx context.Context, name string) error
@@ -54,21 +63,27 @@ func NewClient(instanceServer incusclient.InstanceServer) Client {
 
 func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) error {
 	config := maps.Clone(spec.Config)
+	if config == nil {
+		config = make(map[string]string)
+	}
 
 	switch spec.BootstrapData.Format {
 	case "cloud-config":
-		config["cloud-init.user-data"] = spec.BootstrapData.Data
+		config[configUserDataKey] = spec.BootstrapData.Data
 	case "":
 		// Do nothing
 	default:
 		return fmt.Errorf("unsupported bootstrap data format: %s", spec.BootstrapData.Format)
 	}
 
+	config[configProviderIDKey] = spec.ProviderID
+	config[configMetaDataKey] = fmt.Sprintf("provider-id: %s", spec.ProviderID)
+
 	req := api.InstancesPost{
 		Name: spec.Name,
 		InstancePut: api.InstancePut{
 			Architecture: spec.Architecture,
-			Config:       spec.Config,
+			Config:       config,
 			Devices:      spec.Devices,
 			Ephemeral:    spec.Ephemeral,
 			Profiles:     spec.Profiles,
@@ -108,6 +123,19 @@ func (c *client) CreateInstance(ctx context.Context, spec CreateInstanceInput) e
 	return nil
 }
 
+func (c *client) InstanceExists(ctx context.Context, name string) (bool, error) {
+	_, _, err := c.client.GetInstance(name)
+	if err != nil {
+		if api.StatusErrorCheck(err, http.StatusNotFound) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("failed to get instance: %w", err)
+	}
+
+	return true, nil
+}
+
 func (c *client) GetInstance(ctx context.Context, name string) (*GetInstanceOutput, error) {
 	resp, _, err := c.client.GetInstanceFull(name)
 	if err != nil {
@@ -131,6 +159,7 @@ func (c *client) GetInstance(ctx context.Context, name string) (*GetInstanceOutp
 			Description:  resp.Description,
 			Type:         infrav1alpha1.InstanceType(resp.Type),
 		},
+		ProviderID: resp.Config[configProviderIDKey],
 		StatusCode: resp.StatusCode,
 	}, nil
 }
