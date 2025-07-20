@@ -1,0 +1,537 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: quick-start
+spec:
+  clusterNetwork:
+    services:
+      cidrBlocks:
+      - 10.128.0.0/12
+    pods:
+      cidrBlocks:
+      - "10.244.0.0/16"
+    serviceDomain: "cluster.local"
+  topology:
+    class: quick-start
+    controlPlane:
+      metadata: {}
+      replicas: 3
+    variables:
+    - name: imageRepository
+      value: ""
+    - name: etcdImageTag
+      value: ""
+    - name: coreDNSImageTag
+      value: ""
+    - name: podSecurityStandard
+      value:
+        enabled: true
+        enforce: "baseline"
+        audit: "restricted"
+        warn: "restricted"
+    version: v1.31.1
+    workers:
+      machineDeployments:
+      - class: default-worker
+        name: md-0
+        replicas: 3
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: ClusterClass
+metadata:
+  name: quick-start
+spec:
+  controlPlane:
+    machineHealthCheck:
+      unhealthyConditions:
+      - status: Unknown
+        timeout: 300s
+        type: Ready
+      - status: "False"
+        timeout: 300s
+        type: Ready
+    machineInfrastructure:
+      ref:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+        kind: IncusMachineTemplate
+        name: quick-start-control-plane
+    ref:
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+      kind: KubeadmControlPlaneTemplate
+      name: quick-start-control-plane
+  infrastructure:
+    ref:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+      kind: IncusClusterTemplate
+      name: quick-start-cluster
+  patches:
+  - definitions:
+    - jsonPatches:
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/files/-
+        valueFrom:
+          template: |
+            path: /run/cluster-api/k8s-version
+            owner: root:root
+            permissions: '0644'
+            content: {{ .builtin.controlPlane.version }}
+      selector:
+        apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+        kind: KubeadmControlPlaneTemplate
+        matchResources:
+          controlPlane: true
+    - jsonPatches:
+      - op: add
+        path: /spec/template/spec/files/-
+        valueFrom:
+          template: |
+            path: /run/cluster-api/k8s-version
+            owner: root:root
+            permissions: '0644'
+            content: {{ .builtin.machineDeployment.version }}
+      selector:
+        apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+        kind: KubeadmConfigTemplate
+        matchResources:
+          machineDeploymentClass:
+              names:
+              - default-worker
+    description: Patch the Kubernetes version to KubeadmConfigTemplate.
+    name: clusterVersion
+  - definitions:
+    - jsonPatches:
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/imageRepository
+        valueFrom:
+          variable: imageRepository
+      selector:
+        apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+        kind: KubeadmControlPlaneTemplate
+        matchResources:
+          controlPlane: true
+    description: Sets the imageRepository used for the KubeadmControlPlane.
+    enabledIf: '{{ ne .imageRepository "" }}'
+    name: imageRepository
+  - definitions:
+    - jsonPatches:
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/etcd
+        valueFrom:
+          template: |
+            local:
+              imageTag: {{ .etcdImageTag }}
+      selector:
+        apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+        kind: KubeadmControlPlaneTemplate
+        matchResources:
+          controlPlane: true
+    description: Sets tag to use for the etcd image in the KubeadmControlPlane.
+    name: etcdImageTag
+  - definitions:
+    - jsonPatches:
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/dns
+        valueFrom:
+          template: |
+            imageTag: {{ .coreDNSImageTag }}
+      selector:
+        apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+        kind: KubeadmControlPlaneTemplate
+        matchResources:
+          controlPlane: true
+    description: Sets tag to use for the etcd image in the KubeadmControlPlane.
+    name: coreDNSImageTag
+  - definitions:
+    - jsonPatches:
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/apiServer/extraArgs
+        value:
+          admission-control-config-file: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/clusterConfiguration/apiServer/extraVolumes
+        value:
+        - hostPath: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+          mountPath: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+          name: admission-pss
+          pathType: File
+          readOnly: true
+      - op: add
+        path: /spec/template/spec/kubeadmConfigSpec/files/-
+        valueFrom:
+          template: |
+            content: |
+              apiVersion: apiserver.config.k8s.io/v1
+              kind: AdmissionConfiguration
+              plugins:
+              - name: PodSecurity
+                configuration:
+                  apiVersion: pod-security.admission.config.k8s.io/v1{{ if semverCompare "< v1.25" .builtin.controlPlane.version }}beta1{{ end }}
+                  kind: PodSecurityConfiguration
+                  defaults:
+                    enforce: "{{ .podSecurityStandard.enforce }}"
+                    enforce-version: "latest"
+                    audit: "{{ .podSecurityStandard.audit }}"
+                    audit-version: "latest"
+                    warn: "{{ .podSecurityStandard.warn }}"
+                    warn-version: "latest"
+                  exemptions:
+                    usernames: []
+                    runtimeClasses: []
+                    namespaces: [kube-system]
+            path: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+      selector:
+        apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+        kind: KubeadmControlPlaneTemplate
+        matchResources:
+          controlPlane: true
+    description: Adds an admission configuration for PodSecurity to the kube-apiserver.
+    enabledIf: '{{ .podSecurityStandard.enabled }}'
+    name: podSecurityStandard
+  variables:
+  - name: imageRepository
+    required: true
+    schema:
+      openAPIV3Schema:
+        default: ""
+        description: imageRepository sets the container registry to pull images from.
+          If empty, nothing will be set and the from of kubeadm will be used.
+        example: registry.k8s.io
+        type: string
+  - name: etcdImageTag
+    required: true
+    schema:
+      openAPIV3Schema:
+        default: ""
+        description: etcdImageTag sets the tag for the etcd image.
+        example: 3.5.3-0
+        type: string
+  - name: coreDNSImageTag
+    required: true
+    schema:
+      openAPIV3Schema:
+        default: ""
+        description: coreDNSImageTag sets the tag for the coreDNS image.
+        example: v1.8.5
+        type: string
+  - name: podSecurityStandard
+    required: false
+    schema:
+      openAPIV3Schema:
+        properties:
+          audit:
+            default: restricted
+            description: audit sets the level for the audit PodSecurityConfiguration
+              mode. One of privileged, baseline, restricted.
+            type: string
+          enabled:
+            default: true
+            description: enabled enables the patches to enable Pod Security Standard
+              via AdmissionConfiguration.
+            type: boolean
+          enforce:
+            default: baseline
+            description: enforce sets the level for the enforce PodSecurityConfiguration
+              mode. One of privileged, baseline, restricted.
+            type: string
+          warn:
+            default: restricted
+            description: warn sets the level for the warn PodSecurityConfiguration
+              mode. One of privileged, baseline, restricted.
+            type: string
+        type: object
+  workers:
+    machineDeployments:
+    - class: default-worker
+      machineHealthCheck:
+        unhealthyConditions:
+        - status: Unknown
+          timeout: 300s
+          type: Ready
+        - status: "False"
+          timeout: 300s
+          type: Ready
+      template:
+        bootstrap:
+          ref:
+            apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+            kind: KubeadmConfigTemplate
+            name: quick-start-default-worker-bootstraptemplate
+        infrastructure:
+          ref:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+            kind: IncusMachineTemplate
+            name: quick-start-default-worker-machinetemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IncusClusterTemplate
+metadata:
+  name: quick-start-cluster
+spec:
+  template:
+    spec:
+      controlPlaneEndpoint:
+        host: "10.23.0.2"
+        port: 6443
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlaneTemplate
+metadata:
+  name: quick-start-control-plane
+spec:
+  template:
+    spec:
+      kubeadmConfigSpec:
+        clusterConfiguration:
+          apiServer:
+            certSANs:
+            - localhost
+            - 127.0.0.1
+            - 0.0.0.0
+            - host.docker.internal
+            - 10.23.0.2
+        initConfiguration:
+          nodeRegistration:
+            kubeletExtraArgs:
+              provider-id: "'{{ ds.meta_data.provider_id }}'"
+        joinConfiguration:
+          nodeRegistration:
+            kubeletExtraArgs:
+              provider-id: "'{{ ds.meta_data.provider_id }}'"
+        files:
+        - path: /etc/rc.local
+          owner: root:root
+          permissions: '0755'
+          content: |
+            #!/bin/sh -e
+            # Ref: https://kevingoos.medium.com/kubernetes-inside-proxmox-lxc-cce5c9927942
+            # Kubeadm 1.15 needs /dev/kmsg to be there, but it’s not in lxc, but we can just use /dev/console instead
+            # see: https://github.com/kubernetes-sigs/kind/issues/662
+            if [ ! -e /dev/kmsg ]; then
+              ln -s /dev/console /dev/kmsg
+            fi
+            # https://medium.com/@kvaps/run-kubernetes-in-lxc-container-f04aa94b6c9c
+            mount --make-rshared /
+
+            # ip addr add 10.23.0.2/32 dev lo
+        - path: /run/kubeadm/kube-proxy-configuration.yaml
+          owner: root:root
+          permissions: '0644'
+          content: |
+            ---
+            apiVersion: kubeproxy.config.k8s.io/v1alpha1
+            kind: KubeProxyConfiguration
+            mode: "iptables" # or "userspace"
+            conntrack:
+            # Skip setting sysctl value "net.netfilter.nf_conntrack_max"
+              maxPerCore: 0
+            # Skip setting "net.netfilter.nf_conntrack_tcp_timeout_established"
+              tcpEstablishedTimeout: 0s
+            # Skip setting "net.netfilter.nf_conntrack_tcp_timeout_close"
+              tcpCloseWaitTimeout: 0s
+        - path: /etc/kubernetes/manifests/kube-vip.yaml
+          owner: root:root
+          permissions: '0644'
+          content: |
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              namespace: kube-system
+              name: kube-vip
+            spec:
+              automountServiceAccountToken: false
+              containers:
+                - args:
+                    - manager
+                  env:
+                    - name: address
+                      value: 10.23.0.2
+                    - name: bgp_as
+                      value: "64512"
+                    - name: bgp_enable
+                      value: "true"
+                    - name: bgp_peers
+                      value: 10.24.0.1:64512::true,[fdff::1]:64512::true
+                    - name: bgp_routerinterface
+                      value: eth0
+                    - name: cp_enable
+                      value: "true"
+                    - name: lb_enable
+                      value: "false"
+                    - name: lb_port
+                      value: "6443"
+                    - name: svc_election
+                      value: "false"
+                    - name: svc_enable
+                      value: "true"
+                    - name: vip_arp
+                      value: "false"
+                    - name: vip_cidr
+                      value: "32"
+                    - name: vip_interface
+                      value: lo
+                    - name: vip_leaderelection
+                      value: "false"
+                  image: ghcr.io/kube-vip/kube-vip:v0.8.7
+                  imagePullPolicy: IfNotPresent
+                  name: kube-vip
+                  resources: {}
+                  securityContext:
+                    capabilities:
+                      add:
+                        - NET_ADMIN
+                        - NET_RAW
+                        - SYS_TIME
+                  volumeMounts:
+                    - mountPath: /etc/kubernetes/admin.conf
+                      name: kubeconfig
+              dnsPolicy: ClusterFirst
+              hostAliases:
+                - hostnames:
+                    - kubernetes
+                  ip: 127.0.0.1
+              hostNetwork: true
+              restartPolicy: Always
+              volumes:
+                - hostPath:
+                    path: /etc/kubernetes/admin.conf
+                    type: ""
+                  name: kubeconfig
+
+        preKubeadmCommands:
+        - cat /run/kubeadm/kube-proxy-configuration.yaml >> /run/kubeadm/kubeadm.yaml
+        - /etc/rc.local
+        - apt-get update
+        - apt-get install -y apt-transport-https ca-certificates curl gpg yq
+        # install containerd
+        - curl -Lo /tmp/containerd.tar.gz https://github.com/containerd/containerd/releases/download/v2.0.1/containerd-2.0.1-linux-amd64.tar.gz
+        - tar Cxzvf /usr/local /tmp/containerd.tar.gz
+        - curl -L https://raw.githubusercontent.com/containerd/containerd/v2.0.1/containerd.service > /etc/systemd/system/containerd.service
+        - systemctl daemon-reload
+        - systemctl enable --now containerd
+        - rm -f /tmp/containerd.tar.gz
+        # install runc
+        - curl -Lo /usr/local/sbin/runc https://github.com/opencontainers/runc/releases/download/v1.2.3/runc.amd64
+        - chmod 755 /usr/local/sbin/runc
+        - rm -f /tmp/containerd.tar.gz
+        # install CNI plugins
+        - mkdir -p /opt/cni/bin
+        - curl -Lo /tmp/cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v1.6.1/cni-plugins-linux-amd64-v1.6.1.tgz
+        - tar Cxzvf /opt/cni/bin /tmp/cni-plugins.tgz
+        - VERSION="v1.30.0" # check latest version in /releases page
+        - curl -Lo /tmp/crictl.tar.gz https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz
+        - sudo tar zxvf /tmp/crictl.tar.gz -C /usr/local/bin
+        - rm -f /tmp/crictl.tar.gz
+        # install kubeadm, kubelet, kubectl
+        - cat /run/cluster-api/k8s-version | yq -r 'match("v([0-9]+).([0-9]+).([0-9]+)") | .captures | .[0].string + "." + .[1].string + "." + .[2].string' > /run/cluster-api/k8s-no-v-prefix-version
+        - cat /run/cluster-api/k8s-version | yq -r 'match("v([0-9]+).([0-9]+).([0-9]+)") | .captures | "v" + .[0].string + "." + .[1].string' > /run/cluster-api/k8s-major-minor-version
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/$(cat /run/cluster-api/k8s-major-minor-version)/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$(cat /run/cluster-api/k8s-major-minor-version)/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - apt-get update
+        - "PKG_VERSION=$(apt-cache show kubelet | grep Version: | grep $(cat /run/cluster-api/k8s-no-v-prefix-version) | yq -r .Version)"
+        - apt-get install -y kubelet=$PKG_VERSION kubeadm=$PKG_VERSION kubectl=$PKG_VERSION
+        - apt-mark hold kubelet kubeadm kubectl
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IncusMachineTemplate
+metadata:
+  name: quick-start-control-plane
+spec:
+  template:
+    spec:
+      instanceSpec:
+        type: container
+        source:
+          alias: ubuntu/24.04/cloud
+          server: "https://images.linuxcontainers.org"
+          protocol: "simplestreams"
+        config:
+          raw.lxc: |
+            lxc.apparmor.profile=unconfined
+            lxc.cap.drop=
+            lxc.cgroup.devices.allow=a
+            lxc.mount.auto=proc:rw sys:rw
+          security.nesting: 'true'
+          security.privileged: 'true'
+        profiles:
+        - default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IncusMachineTemplate
+metadata:
+  name: quick-start-default-worker-machinetemplate
+spec:
+  template:
+    spec:
+      instanceSpec:
+        type: container
+        source:
+          alias: ubuntu/24.04/cloud
+          server: "https://images.linuxcontainers.org"
+          protocol: "simplestreams"
+        config:
+          raw.lxc: |
+            lxc.apparmor.profile=unconfined
+            lxc.cap.drop=
+            lxc.cgroup.devices.allow=a
+            lxc.mount.auto=proc:rw sys:rw
+          security.nesting: 'true'
+          security.privileged: 'true'
+        profiles:
+        - default
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: quick-start-default-worker-bootstraptemplate
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            provider-id: "'{{ ds.meta_data.provider_id }}'"
+      files:
+      - path: /etc/rc.local
+        owner: root:root
+        permissions: '0755'
+        content: |
+          #!/bin/sh -e
+          # Ref: https://kevingoos.medium.com/kubernetes-inside-proxmox-lxc-cce5c9927942
+          # Kubeadm 1.15 needs /dev/kmsg to be there, but it’s not in lxc, but we can just use /dev/console instead
+          # see: https://github.com/kubernetes-sigs/kind/issues/662
+          if [ ! -e /dev/kmsg ]; then
+            ln -s /dev/console /dev/kmsg
+          fi
+          # https://medium.com/@kvaps/run-kubernetes-in-lxc-container-f04aa94b6c9c
+          mount --make-rshared /
+
+      preKubeadmCommands:
+      - /etc/rc.local
+      - apt-get update
+      - apt-get install -y apt-transport-https ca-certificates curl gpg yq
+      # install containerd
+      - curl -Lo /tmp/containerd.tar.gz https://github.com/containerd/containerd/releases/download/v2.0.1/containerd-2.0.1-linux-amd64.tar.gz
+      - tar Cxzvf /usr/local /tmp/containerd.tar.gz
+      - curl -L https://raw.githubusercontent.com/containerd/containerd/v2.0.1/containerd.service > /etc/systemd/system/containerd.service
+      - systemctl daemon-reload
+      - systemctl enable --now containerd
+      - rm -f /tmp/containerd.tar.gz
+      # install runc
+      - curl -Lo /usr/local/sbin/runc https://github.com/opencontainers/runc/releases/download/v1.2.3/runc.amd64
+      - chmod 755 /usr/local/sbin/runc
+      - rm -f /tmp/containerd.tar.gz
+      # install CNI plugins
+      - mkdir -p /opt/cni/bin
+      - curl -Lo /tmp/cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v1.6.1/cni-plugins-linux-amd64-v1.6.1.tgz
+      - tar Cxzvf /opt/cni/bin /tmp/cni-plugins.tgz
+      - VERSION="v1.30.0" # check latest version in /releases page
+      - curl -Lo /tmp/crictl.tar.gz https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-${VERSION}-linux-amd64.tar.gz
+      - sudo tar zxvf /tmp/crictl.tar.gz -C /usr/local/bin
+      - rm -f /tmp/crictl.tar.gz
+      # install kubeadm, kubelet, kubectl
+      - cat /run/cluster-api/k8s-version | yq -r 'match("v([0-9]+).([0-9]+).([0-9]+)") | .captures | "v" + .[0].string + "." + .[1].string' > /run/cluster-api/k8s-major-minor-version
+      - curl -fsSL https://pkgs.k8s.io/core:/stable:/$(cat /run/cluster-api/k8s-major-minor-version)/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$(cat /run/cluster-api/k8s-major-minor-version)/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+      - apt-get update
+      - apt-get install -y kubelet kubeadm kubectl
+      - apt-mark hold kubelet kubeadm kubectl
