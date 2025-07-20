@@ -1,0 +1,12 @@
+resources:
+- ../default
+
+patches:
+- path: patch_deployment.yaml
+
+images:
+- digest: sha256:7da441466a91e54c3b0a8994482251f7dd1fa83f8ec079bf786f9b4b7709a68d
+  name: controller
+  newName: ghcr.io/miscord-dev/cluster-api-provider-incus
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization

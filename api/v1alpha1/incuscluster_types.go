@@ -40,6 +40,25 @@ type IncusClusterSpec struct {
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
+
+	// Incus is the configuration for the Incus API.
+	Incus Incus `json:"incus"`
+}
+
+type Incus struct {
+	// Endpoint is the API endpoint to reach the Incus API.
+	Endpoint string `json:"endpoint"`
+
+	// secretRef is a reference to the secret containing the credentials to access the Incus API.
+	SecretRef SecretReference `json:"secretRef"`
+
+	// Project is the project to use when interacting with the Incus API.
+	Project string `json:"project"`
+}
+
+type SecretReference struct {
+	// Name is the name of the secret.
+	Name string `json:"name"`
 }
 
 // APIEndpoint represents a reachable Kubernetes API endpoint.

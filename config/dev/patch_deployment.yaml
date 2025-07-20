@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-api-provider-incus-controller-manager
+  namespace: capincus-system
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: false
+      initContainers:
+        - name: init-incus
+          image: ghcr.io/miscord-dev/dexsidecar:pr-2
+          imagePullPolicy: Always
+          restartPolicy: Always
+          env:
+            - name: dex_access_token_file
+              value: /var/run/secrets/miscord.win/dex/token
+            - name: dex_endpoint
+              value: "https://dex.tsuzu.dev/token"
+            - name: dex_basic_auth
+              value: "incus:"
+            - name: dex_connector_id
+              value: k3s
+            - name: dex_grant_type
+              value: urn:ietf:params:oauth:grant-type:token-exchange
+            - name: dex_scope
+              value: "openid federated_id"
+            - name: dex_requested_token_type
+              value: urn:ietf:params:oauth:token-type:access_token
+            - name: dex_file_subject_token
+              value: /var/run/secrets/kubernetes.io/dex/token
+            - name: dex_subject_token_type
+              value: urn:ietf:params:oauth:token-type:id_token
+          volumeMounts:
+            - name: incus-api-key
+              mountPath: /var/run/secrets/miscord.win/dex
+            - name: dex
+              mountPath: /var/run/secrets/kubernetes.io/dex
+      containers:
+        - name: manager
+          args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --incus-url=https://incus.tsuzu.dev:8443
+            - --incus-oidc-token-file=/var/run/secrets/miscord.win/dex/token
+          volumeMounts:
+            - name: incus-api-key
+              mountPath: /var/run/secrets/miscord.win/dex
+      volumes:
+        - name: incus-api-key
+          emptyDir: {}
+        - name: dex
+          projected:
+            defaultMode: 420
+            sources:
+            - serviceAccountToken:
+                audience: dex
+                expirationSeconds: 7200
+                path: token
