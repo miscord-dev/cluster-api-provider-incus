@@ -86,6 +86,34 @@ spec:
                         - host
                         - port
                         type: object
+                      incus:
+                        description: Incus is the configuration for the Incus API.
+                        properties:
+                          endpoint:
+                            description: Endpoint is the API endpoint to reach the
+                              Incus API.
+                            type: string
+                          project:
+                            description: Project is the project to use when interacting
+                              with the Incus API.
+                            type: string
+                          secretRef:
+                            description: secretRef is a reference to the secret containing
+                              the credentials to access the Incus API.
+                            properties:
+                              name:
+                                description: Name is the name of the secret.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        required:
+                        - endpoint
+                        - project
+                        - secretRef
+                        type: object
+                    required:
+                    - incus
                     type: object
                 required:
                 - spec

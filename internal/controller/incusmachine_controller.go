@@ -49,7 +49,7 @@ type IncusMachineReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	IncusClient incus.Client
+	IncusClientFactory incus.ClientFactory
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=incusmachines,verbs=get;list;watch;create;update;patch;delete
@@ -205,17 +205,15 @@ func patchIncusMachine(ctx context.Context, patchHelper *patch.Helper, incusMach
 	)
 }
 
-func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1alpha1.IncusCluster, _ *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
+func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, incusCluster *infrav1alpha1.IncusCluster, _ *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// If the IncusMachine is being deleted, handle its deletion.
-	// log.Info("Handling deleted IncusMachine")
-	// if err := r.deleteMachine(ctx, incusCluster, machine, incusMachine, externalMachine, externalLoadBalancer); err != nil {
-	// 	log.Error(err, "Failed to delete IncusMachine")
-	// 	return err
-	// }
+	incusClient, err := r.IncusClientFactory.GetClientForCluster(ctx, incusCluster)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get Incus client for cluster: %w", err)
+	}
 
-	exists, err := r.IncusClient.InstanceExists(ctx, incusMachine.Name)
+	exists, err := incusClient.InstanceExists(ctx, incusMachine.Name)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check if instance exists: %w", err)
 	}
@@ -226,7 +224,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 		return ctrl.Result{}, nil
 	}
 
-	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
+	output, err := incusClient.GetInstance(ctx, incusMachine.Name)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get instance: %w", err)
 	}
@@ -235,7 +233,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 		output.StatusCode != api.Stopping {
 		log.Info("Stopping instance")
 
-		if err := r.IncusClient.StopInstance(ctx, incusMachine.Name); err != nil {
+		if err := incusClient.StopInstance(ctx, incusMachine.Name); err != nil {
 			log.Info("Failed to stop instance", "error", err)
 		}
 
@@ -245,7 +243,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 	} else if output.StatusCode != api.OperationCreated {
 		log.Info("Deleting instance")
 
-		if err := r.IncusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
+		if err := incusClient.DeleteInstance(ctx, incusMachine.Name); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete instance: %w", err)
 		}
 
@@ -260,7 +258,7 @@ func (r *IncusMachineReconciler) reconcileDelete(ctx context.Context, _ *infrav1
 }
 
 //nolint:unparam
-func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, _ *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
+func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, incusCluster *infrav1alpha1.IncusCluster, machine *clusterv1.Machine, incusMachine *infrav1alpha1.IncusMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Check if the infrastructure is ready, otherwise return and wait for the cluster object to be updated
@@ -275,7 +273,12 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	}
 	dataSecretName := *machine.Spec.Bootstrap.DataSecretName
 
-	output, err := r.IncusClient.GetInstance(ctx, incusMachine.Name)
+	incusClient, err := r.IncusClientFactory.GetClientForCluster(ctx, incusCluster)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get Incus client for cluster: %w", err)
+	}
+
+	output, err := incusClient.GetInstance(ctx, incusMachine.Name)
 	if err == nil {
 		if r.isMachineReady(output) {
 			log.Info("IncusMachine instance is ready")
@@ -309,7 +312,7 @@ func (r *IncusMachineReconciler) reconcileNormal(ctx context.Context, cluster *c
 	providerID := fmt.Sprintf("incus://%s", uuid.String())
 
 	// Create the instance
-	err = r.IncusClient.CreateInstance(ctx, incus.CreateInstanceInput{
+	err = incusClient.CreateInstance(ctx, incus.CreateInstanceInput{
 		Name: incusMachine.Name,
 		BootstrapData: incus.BootstrapData{
 			Data:   bootstrapData,

@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
-	"net/http"
 	"os"
 	"os/signal"
 
@@ -28,7 +27,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	incusclient "github.com/lxc/incus/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -42,7 +40,6 @@ import (
 	infrav1alpha1 "github.com/miscord-dev/cluster-api-provider-incus/api/v1alpha1"
 	"github.com/miscord-dev/cluster-api-provider-incus/internal/controller"
 	"github.com/miscord-dev/cluster-api-provider-incus/pkg/incus"
-	"github.com/miscord-dev/cluster-api-provider-incus/pkg/transport"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
@@ -60,45 +57,6 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func incusConnection() func() (url string, args incusclient.ConnectionArgs) {
-	var url string
-	var args incusclient.ConnectionArgs
-	var oidcTokenFile string
-	flag.StringVar(&url, "incus-url", "http://localhost:8080", "The URL of the Incus server")
-	flag.BoolVar(&args.InsecureSkipVerify, "incus-insecure-skip-verify", false, "Skip SSL certificate verification")
-	flag.StringVar(&args.TLSCA, "incus-tls-ca", "", "The path to the CA certificate")
-	flag.StringVar(&args.TLSClientCert, "incus-tls-client-cert", "", "The path to the client certificate")
-	flag.StringVar(&args.TLSClientKey, "incus-tls-client-key", "", "The path to the client key")
-	flag.StringVar(&oidcTokenFile, "incus-oidc-token-file", "", "The path to the OIDC token file (Supports hot-reloading)")
-
-	return func() (string, incusclient.ConnectionArgs) {
-		if args.TLSCA != "" {
-			args.TLSCA = string(loadFile(args.TLSCA))
-		}
-		if args.TLSClientCert != "" {
-			args.TLSClientCert = string(loadFile(args.TLSClientCert))
-		}
-		if args.TLSClientKey != "" {
-			args.TLSClientKey = string(loadFile(args.TLSClientKey))
-		}
-		if oidcTokenFile != "" {
-			args.TransportWrapper = func(t *http.Transport) incusclient.HTTPTransporter {
-				return transport.NewTransport(t, oidcTokenFile, "Bearer")
-			}
-		}
-
-		return url, args
-	}
-}
-
-func loadFile(file string) []byte {
-	b, err := os.ReadFile(file)
-	if err != nil {
-		setupLog.Error(err, "failed to load file", "file", file)
-	}
-
-	return b
-}
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -121,7 +79,6 @@ func main() {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	initIncus := incusConnection()
 
 	opts := zap.Options{
 		Development: true,
@@ -130,14 +87,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	incusURL, connectionArgs := initIncus()
-	incusServer, err := incusclient.ConnectIncus(incusURL, &connectionArgs)
-	if err != nil {
-		setupLog.Error(err, "failed to connect to Incus")
-		os.Exit(1)
-	}
-	incusClient := incus.NewClient(incusServer)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -216,9 +165,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.IncusMachineReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		IncusClient: incusClient,
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		IncusClientFactory: incus.NewClientFactory(mgr.GetClient()),
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IncusMachine")
 		os.Exit(1)
